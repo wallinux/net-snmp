@@ -29,13 +29,17 @@ failed_count=0
 rm -f failed_tests
 for i in "${srcdir}"/testing/fulltests/default/T*$1*; do
     echo "RUNNING $i"
+    test_name=`basename $i`
     ${srcdir}/testing/fulltests/support/simple_run $i
     if [ $? = 0 ]; then
+        echo "PASS: $test_name"
         success_count=`expr $success_count + 1`
     else
+        echo "FAIL: $test_name"
         failed_count=`expr $failed_count + 1`
         echo "$i" >> failed_tests
     fi
+    echo
 done
 
 if [ -f failed_tests ]; then
