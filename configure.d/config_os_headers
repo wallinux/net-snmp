@@ -489,8 +489,8 @@ then
     unset ac_cv_header_pkg_h
     netsnmp_save_CPPFLAGS="$CPPFLAGS"
     netsnmp_save_LDFLAGS="$LDFLAGS"
-    CPPFLAGS="$CPPFLAGS -I/usr/local/include"
-    LDFLAGS="$LDFLAGS -L/usr/local/lib"
+    CPPFLAGS="$CPPFLAGS"
+    LDFLAGS="$LDFLAGS"
     AC_CHECK_HEADERS(pkg.h,
         NETSNMP_SEARCH_LIBS(pkg_init, pkg,
 	    AC_DEFINE(HAVE_LIBPKG, 1, [define if you have BSD pkg-ng])))
