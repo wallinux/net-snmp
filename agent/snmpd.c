@@ -164,6 +164,10 @@ typedef long    fd_mask;
 
 #endif
 
+#ifndef NETSNMP_NO_SYSTEMD
+#include <net-snmp/library/sd-daemon.h>
+#endif
+
 netsnmp_feature_want(logging_file)
 netsnmp_feature_want(logging_stdio)
 netsnmp_feature_want(logging_syslog)
@@ -443,19 +447,29 @@ main(int argc, char *argv[])
     int             agent_mode = -1;
     char           *pid_file = NULL;
     char            option_compatability[] = "-Le";
+#ifndef WIN32
+    int             prepared_sockets = 0;
+#endif
 #if HAVE_GETPID
     int fd;
     FILE           *PID;
 #endif
 
 #ifndef WIN32
+#ifndef NETSNMP_NO_SYSTEMD
+    /* check if systemd has sockets for us and don't close them */
+    prepared_sockets = netsnmp_sd_listen_fds(0);
+#endif /* NETSNMP_NO_SYSTEMD */
+
     /*
      * close all non-standard file descriptors we may have
      * inherited from the shell.
      */
-    for (i = getdtablesize() - 1; i > 2; --i) {
-        (void) close(i);
-    }
+    if (!prepared_sockets) {
+        for (i = getdtablesize() - 1; i > 2; --i) {
+            (void) close(i);
+        }    
+}
 #endif /* #WIN32 */
     
     /*
@@ -1105,6 +1119,19 @@ main(int argc, char *argv[])
     agent_status = AGENT_RUNNING;
 #endif
     netsnmp_addrcache_initialise();
+
+    /*
+     * Let systemd know we're up.
+     */
+#ifndef NETSNMP_NO_SYSTEMD
+    netsnmp_sd_notify(1, "READY=1\n");
+    if (prepared_sockets)
+        /*
+         * Clear the environment variable, we already processed all the sockets
+         * by now.
+         */
+        netsnmp_sd_listen_fds(1);
+#endif
 
     /*
      * Forever monitor the dest_port for incoming PDUs.  
