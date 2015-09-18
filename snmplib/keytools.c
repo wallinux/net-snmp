@@ -186,8 +186,7 @@ generate_Ku(const oid * hashtype, u_int hashtype_len,
     ctx = EVP_MD_CTX_create();
 #else
     ctx = malloc(sizeof(*ctx));
-    if (!EVP_MD_CTX_init(ctx))
-        return SNMPERR_GENERR;
+    EVP_MD_CTX_init(ctx);
 #endif
     if (!EVP_DigestInit(ctx, hashfn))
         return SNMPERR_GENERR;
