@@ -295,8 +295,19 @@ netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
 
         client_socket = netsnmp_ds_get_string(NETSNMP_DS_LIBRARY_ID,
                                     NETSNMP_DS_LIB_CLIENT_ADDR);
-        if (client_socket) {
+
+	DEBUGMSGTL(("netsnmp_udp6", "client_socket %s\n",client_socket));
+
+	if (client_socket) {
             struct sockaddr_in6 client_addr;
+	    if (strncasecmp("udp6:", client_socket, 5) == 0) {
+		    /*
+		     * remove tdomain from client socket
+		     */
+		    client_socket = client_socket + 5;
+	    }
+	    DEBUGMSGTL(("netsnmp_udp6", "client_socket without tdomain %s\n",
+			client_socket));
             netsnmp_sockaddr_in6_2(&client_addr, client_socket, NULL);
             rc = bind(t->sock, (struct sockaddr *)&client_addr,
                               sizeof(struct sockaddr_in6));
@@ -308,10 +319,12 @@ netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
                 return NULL;
             }
         }
+
         /*
          * This is a client session.  Save the address in the
          * transport-specific data pointer for later use by netsnmp_udp6_send.
          */
+	DEBUGMSGTL(("netsnmp_udp6", "client session\n"));
 
         t->data = malloc(sizeof(netsnmp_indexed_addr_pair));
         if (t->data == NULL) {
