@@ -309,6 +309,7 @@ netsnmp_udp6_transport(struct sockaddr_in6 *addr, int local)
 	    DEBUGMSGTL(("netsnmp_udp6", "client_socket without tdomain %s\n",
 			client_socket));
             netsnmp_sockaddr_in6_2(&client_addr, client_socket, NULL);
+	    client_addr.sin6_port = 0;
             rc = bind(t->sock, (struct sockaddr *)&client_addr,
                               sizeof(struct sockaddr_in6));
             if ( rc != 0 ) {
