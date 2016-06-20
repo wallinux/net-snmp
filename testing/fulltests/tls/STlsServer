@@ -48,9 +48,6 @@ DOSETTEST hostnameIdentity "-T trust_cert=$CAFP -T their_hostname=a.b.example.co
 # Negative tests
 #    (should fail)
 
-# if we don't load the CA certificate we shouldn't connect
-DOFAILSETTEST noTrustCACert  "-T their_hostname=a.b.example.com $FLAGS"
-
 # if we specify a different hostname we should fail hostname test
 # ("localhos" without the "t" is intentional here)
 DOFAILSETTEST incorrectNameA.B.Example.Co  "-T their_hostname=a.b.example.co $FLAGS"
