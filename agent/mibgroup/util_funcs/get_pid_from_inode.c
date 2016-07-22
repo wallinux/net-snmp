@@ -6,6 +6,7 @@
 #include <net-snmp/output_api.h>
 
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #if HAVE_STDLIB_H
 #include <stdlib.h>
