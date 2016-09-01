@@ -104,6 +104,7 @@ typedef struct bio_cache_s {
    BIO *read_bio;  /* OpenSSL will read its incoming SSL packets from here */
    BIO *write_bio; /* OpenSSL will write its outgoing SSL packets to here */
    netsnmp_sockaddr_storage sas;
+   netsnmp_indexed_addr_pair addr_pair;
    u_int flags;
    struct bio_cache_s *next;
    int msgnum;
@@ -285,8 +286,10 @@ start_new_cached_connection(netsnmp_transport *t,
     cachep->next = biocache;
     biocache = cachep;
 
-    if (remote_addr->sa.sa_family == AF_INET)
+    if (remote_addr->sa.sa_family == AF_INET) {
         memcpy(&cachep->sas.sin, &remote_addr->sin, sizeof(remote_addr->sin));
+        memcpy(&cachep->addr_pair.remote_addr, remote_addr, sizeof(netsnmp_sockaddr_storage));
+    }
 #ifdef NETSNMP_TRANSPORT_UDPIPV6_DOMAIN
     else if (remote_addr->sa.sa_family == AF_INET6)
         memcpy(&cachep->sas.sin6, &remote_addr->sin6, sizeof(remote_addr->sin6));
@@ -484,13 +487,22 @@ _netsnmp_send_queued_dtls_pkts(netsnmp_transport *t, bio_cache *cachep) {
 
         /* should always be true. */
         int socksize;
-        struct sockaddr *sa;
-        sa = _find_remote_sockaddr(t, NULL, 0, &socksize);
-        if (NULL == sa)
+        struct sockaddr *sa = NULL;
+        netsnmp_indexed_addr_pair *addr_pair  = _extract_addr_pair(t, NULL, 0);
+        if (NULL != addr_pair) {
+            sa = &addr_pair->remote_addr.sa;
+        } else {
             sa = &cachep->sas.sa;
+            addr_pair = &cachep->addr_pair;
+        }
         socksize = netsnmp_sockaddr_size(sa);
-        rc2 = t->base_transport->f_send(t, outbuf, outsize, (void**)&sa,
-                                        &socksize);
+        if (sa->sa_family == AF_INET) {
+            rc2 = t->base_transport->f_send(t, outbuf, outsize, (void**)&addr_pair,
+					    &socksize);
+        } else {
+            rc2 = t->base_transport->f_send(t, outbuf, outsize, (void**)&sa,
+					    &socksize);
+        }
         if (rc2 == -1) {
             snmp_log(LOG_ERR, "failed to send a DTLS specific packet\n");
         }
@@ -638,8 +650,13 @@ netsnmp_dtlsudp_recv(netsnmp_transport *t, void *buf, int size,
         char *opaque = NULL;
         int olen;
         rc = t->base_transport->f_recv(t, buf, size, (void**)&opaque, &olen);
-        if (rc > 0)
-            memcpy(from, opaque, olen);
+        if (rc > 0) {
+            if (olen == sizeof(struct sockaddr_in6)) {
+                memcpy(from, opaque, olen);
+            } else {
+                memcpy(addr_pair, opaque, olen);
+            }
+        }
         SNMP_FREE(opaque);
         if (rc < 0 && errno != EINTR) {
             break;
@@ -1219,10 +1236,15 @@ netsnmp_dtlsudp_send(netsnmp_transport *t, void *buf, int size,
         /* in theory an ok thing */
         return 0;
     }
-    socksize = netsnmp_sockaddr_size(&cachep->sas.sa);
     sa = &cachep->sas.sa;
-    rc = t->base_transport->f_send(t, outbuf, rc, (void**)&sa, &socksize);
-
+    if (sa->sa_family == AF_INET) {
+        socksize = sizeof(netsnmp_indexed_addr_pair);
+        addr_pair = &cachep->addr_pair;
+        rc = t->base_transport->f_send(t, outbuf, rc, (void**)&addr_pair, &socksize);
+    } else {
+        socksize = netsnmp_sockaddr_size(&cachep->sas.sa);
+        rc = t->base_transport->f_send(t, outbuf, rc, (void**)&sa, &socksize);
+    }
     return rc;
 }
 
