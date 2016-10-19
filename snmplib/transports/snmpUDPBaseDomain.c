@@ -44,6 +44,10 @@
 #include <net-snmp/library/system.h>
 #include <net-snmp/library/snmp_assert.h>
 
+#ifndef ALLOW_PORT_HIJACKING
+#define ALLOW_PORT_HIJACKING
+#endif
+
 #ifndef  MSG_DONTWAIT
 #define MSG_DONTWAIT 0
 #endif
