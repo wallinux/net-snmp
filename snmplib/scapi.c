@@ -87,7 +87,9 @@ netsnmp_feature_child_of(usm_scapi, usm_support)
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#ifdef HAVE_OPENSSL_DES_H
 #include <openssl/des.h>
+#endif
 #ifdef HAVE_AES
 #include <openssl/aes.h>
 #endif
