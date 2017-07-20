@@ -1239,6 +1239,7 @@ receive(void)
 	    snmp_log(LOG_INFO, "NET-SNMP version %s restarted\n",
 		     netsnmp_get_version());
             update_config();
+            snmp_store(app_name);
             send_easy_trap(SNMP_TRAP_ENTERPRISESPECIFIC, 3);
 #if HAVE_SIGHOLD
             sigrelse(SIGHUP);
