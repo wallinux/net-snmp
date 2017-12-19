@@ -451,21 +451,6 @@ _extract_addr_pair(netsnmp_transport *t, void *opaque, int olen)
     return addr_pair;
 }
 
-static struct sockaddr *
-_find_remote_sockaddr(netsnmp_transport *t, void *opaque, int olen, int *socklen)
-{
-    netsnmp_indexed_addr_pair *addr_pair = _extract_addr_pair(t, opaque, olen);
-    struct sockaddr *sa = NULL;
-
-    if (NULL == addr_pair)
-        return NULL;
-
-    sa = &addr_pair->remote_addr.sa;
-    *socklen = netsnmp_sockaddr_size(sa);
-    return sa;
-}
-
-
 /*
  * Reads data from our internal openssl outgoing BIO and sends any
  * queued packets out the UDP port
@@ -1368,11 +1353,11 @@ netsnmp_dtlsudp_close(netsnmp_transport *t)
 char *
 netsnmp_dtlsudp_fmtaddr(netsnmp_transport *t, void *data, int len)
 {
-    int              sa_len;
-    struct sockaddr *sa = _find_remote_sockaddr(t, data, len, &sa_len);
-    if (sa) {
-        data = sa;
-        len = sa_len;
+    netsnmp_indexed_addr_pair *addr_pair = _extract_addr_pair(t, data, len);
+
+    if (addr_pair) {
+	len = sizeof(netsnmp_indexed_addr_pair);
+	data = addr_pair;
     }
 
     return netsnmp_ipv4_fmtaddr("DTLSUDP", t, data, len);
@@ -1463,13 +1448,12 @@ netsnmp_dtlsudp_transport(struct sockaddr_in *addr, int local)
 char *
 netsnmp_dtlsudp6_fmtaddr(netsnmp_transport *t, void *data, int len)
 {
-    int              sa_len;
-    struct sockaddr *sa = _find_remote_sockaddr(t, data, len, &sa_len);
-    if (sa) {
-        data = sa;
-        len = sa_len;
-    }
+    netsnmp_indexed_addr_pair *addr_pair = _extract_addr_pair(t, data, len);
 
+    if (addr_pair) {
+	data = &addr_pair->remote_addr.sa;
+	len = netsnmp_sockaddr_size(&addr_pair->remote_addr.sa);
+    }
     return netsnmp_ipv6_fmtaddr("DTLSUDP6", t, data, len);
 }
 
