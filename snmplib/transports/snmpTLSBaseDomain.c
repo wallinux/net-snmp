@@ -296,7 +296,9 @@ netsnmp_tlsbase_verify_server_cert(SSL *ssl, _netsnmpTLSBaseData *tlsdata) {
             if (is_wildcarded) {
                 /* we *only* allow passing till the first '.' */
                 /* ie *.example.com can't match a.b.example.com */
-                check_name = strchr(check_name, '.') + 1;
+	        if (strchr(check_name, '.') != NULL) {
+		    check_name = strchr(check_name, '.') + 1;
+	        }
             }
 
             if (strcmp(compare_to, check_name) == 0) {
