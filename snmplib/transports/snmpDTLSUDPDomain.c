@@ -1548,7 +1548,7 @@ netsnmp_dtlsudp_create_ostring(const u_char * o, size_t o_len, int local)
         struct sockaddr_in6 addr6;
         unsigned short porttmp = (o[16] << 8) + o[17];
         addr6.sin6_family = AF_INET6;
-        memcpy((u_char *) & (addr6.sin6_addr.s6_addr), o, 4);
+        memcpy((u_char *) & (addr6.sin6_addr.s6_addr), o, 16);
         addr6.sin6_port = htons(porttmp);
         return netsnmp_dtlsudp6_transport(&addr6, local);
     }
