@@ -1,5 +1,5 @@
 /*
- *  AgentX sub-agent
+ *  agentx sub-agent
  */
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-features.h>
@@ -78,6 +78,7 @@ typedef struct _net_snmpsubagent_magic_s {
 struct agent_netsnmp_set_info {
     int             transID;
     int             mode;
+    int             req_pending;
     int             errstat;
     time_t          uptime;
     netsnmp_session *sess;
@@ -190,6 +191,7 @@ save_set_vars(netsnmp_session * ss, netsnmp_pdu *pdu)
     ptr->sess = ss;
     ptr->mode = SNMP_MSG_INTERNAL_SET_RESERVE1;
     ptr->uptime = netsnmp_get_agent_uptime();
+    ptr->req_pending = 0;
 
     ptr->var_list = snmp_clone_varbind(pdu->variables);
     if (ptr->var_list == NULL) {
@@ -199,6 +201,18 @@ save_set_vars(netsnmp_session * ss, netsnmp_pdu *pdu)
 
     ptr->next = Sets;
     Sets = ptr;
+
+    return ptr;
+}
+
+struct agent_netsnmp_set_info *
+pending_trans_set_info(netsnmp_session * sess, netsnmp_pdu *pdu)
+{
+    struct agent_netsnmp_set_info *ptr;
+
+    for (ptr = Sets; ptr != NULL; ptr = ptr->next)
+        if (ptr->sess == sess && ptr->transID == pdu->transid)
+            break;
 
     return ptr;
 }
@@ -411,6 +425,14 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
          * XXXWWW we have to map this twice to both RESERVE1 and RESERVE2 
          */
         DEBUGMSGTL(("agentx/subagent", "  -> testset\n"));
+        asi = pending_trans_set_info(session, pdu);
+        if (asi) {
+            DEBUGMSGTL(("agentx/subagent",
+                        "dropping testset retry for transid 0x%x in mode %d\n",
+                        (unsigned)pdu->transid, asi->mode));
+            //SNMP_FREE(retmagic); XXX necessary?
+            return 1;
+        }
         asi = save_set_vars(session, pdu);
         if (asi == NULL) {
             SNMP_FREE(smagic);
@@ -430,6 +452,13 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
             SNMP_FREE(smagic);
             snmp_log(LOG_WARNING, "restore_set_vars() failed\n");
             send_agentx_error(session, pdu, AGENTX_ERR_PROCESSING_ERROR, 0);
+            return 1;
+        }
+        if (asi->req_pending) {
+            DEBUGMSGTL(("agentx/subagent",
+                        "dropping commitset - request pending for transid 0x%x in mode %d\n",
+                        (unsigned)pdu->transid, asi->mode));
+            //SNMP_FREE(retmagic); XXX necessary?
             return 1;
         }
         if (asi->mode != SNMP_MSG_INTERNAL_SET_RESERVE2) {
@@ -452,6 +481,13 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
             SNMP_FREE(smagic);
             snmp_log(LOG_WARNING, "restore_set_vars() failed\n");
             send_agentx_error(session, pdu, AGENTX_ERR_PROCESSING_ERROR, 0);
+            return 1;
+        }
+        if (asi->req_pending) {
+            DEBUGMSGTL(("agentx/subagent",
+                        "dropping cleanupset - request pending for transid 0x%x in mode %d\n",
+                        (unsigned)pdu->transid, asi->mode));
+            //SNMP_FREE(retmagic); XXX necessary?
             return 1;
         }
         if (asi->mode == SNMP_MSG_INTERNAL_SET_RESERVE1 ||
@@ -477,6 +513,13 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
             SNMP_FREE(smagic);
             snmp_log(LOG_WARNING, "restore_set_vars() failed\n");
             send_agentx_error(session, pdu, AGENTX_ERR_PROCESSING_ERROR, 0);
+            return 1;
+        }
+        if (asi->req_pending) {
+            DEBUGMSGTL(("agentx/subagent",
+                        "dropping undoset - request pending for transid 0x%x in mode %d\n",
+                        (unsigned)pdu->transid, asi->mode));
+            //SNMP_FREE(retmagic); XXX necessary?
             return 1;
         }
         asi->mode = pdu->command = SNMP_MSG_INTERNAL_SET_UNDO;
@@ -511,6 +554,8 @@ handle_agentx_packet(int operation, netsnmp_session * session, int reqid,
                     retmagic);
     if (result == 0) {
         snmp_free_pdu( internal_pdu );
+    } else if (asi) {
+        asi->req_pending = 1;
     }
     return 1;
 }
@@ -630,6 +675,7 @@ handle_subagent_set_response(int op, netsnmp_session * session, int reqid,
 {
     netsnmp_session *retsess;
     struct agent_netsnmp_set_info *asi;
+    int new_mode;
     int result;
 
     if (op != NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE || magic == NULL) {
@@ -638,13 +684,61 @@ handle_subagent_set_response(int op, netsnmp_session * session, int reqid,
 
     DEBUGMSGTL(("agentx/subagent",
                 "handling agentx subagent set response (mode=%d,req=0x%x,"
-                "trans=0x%x,sess=0x%x)\n",
+                "trans=0x%x,sess=0x%x,magic=%p)\n",
                 (unsigned)pdu->command, (unsigned)pdu->reqid,
-		(unsigned)pdu->transid, (unsigned)pdu->sessid));
+		(unsigned)pdu->transid, (unsigned)pdu->sessid,
+                magic));
+
     pdu = snmp_clone_pdu(pdu);
 
     asi = (struct agent_netsnmp_set_info *) magic;
+
+    DEBUGMSGTL(("agentx/subagent",
+                "set response in mode %d (errstat %li, req_pending %d)\n",
+                asi->mode, pdu->errstat, asi->req_pending));
+
+    asi->req_pending = 0;
     retsess = asi->sess;
+
+    if (!snmp_sess_pointer(retsess) || retsess->sessid != pdu->sessid) {
+        DEBUGMSGTL(("agentx/subagent",
+                    "session id 0x%x gone for set response (transid 0x%x, reqid 0x%x)\n",
+                    (unsigned)pdu->sessid, (unsigned)pdu->transid, (unsigned)pdu->reqid));
+
+        result = 0;
+
+        if (!pdu->errstat) {
+            switch (asi->mode) {
+                case SNMP_MSG_INTERNAL_SET_RESERVE1:
+                case SNMP_MSG_INTERNAL_SET_RESERVE2:
+                    new_mode = SNMP_MSG_INTERNAL_SET_FREE;
+                    break;
+
+                case SNMP_MSG_INTERNAL_SET_ACTION:
+                    new_mode = SNMP_MSG_INTERNAL_SET_UNDO;
+                    break;
+
+                default:
+                    new_mode = 0;
+            }
+
+            if (new_mode) {
+                asi->mode = pdu->command = new_mode;
+                result = snmp_async_send(agentx_callback_sess, pdu,
+                                         handle_subagent_set_response, asi);
+            }
+        }
+
+        if (result == 0) {
+            /* don't need to (or cannot) FREE/UNDO */
+            free_set_vars(retsess, pdu);
+            snmp_free_pdu(pdu);
+        } else {
+            asi->req_pending = 1;
+        }
+        return 1;
+    }
+
     asi->errstat = pdu->errstat;
 
     if (asi->mode == SNMP_MSG_INTERNAL_SET_RESERVE1) {
@@ -660,6 +754,8 @@ handle_subagent_set_response(int op, netsnmp_session * session, int reqid,
                             handle_subagent_set_response, asi);
             if (result == 0) {
                 snmp_free_pdu( pdu );
+            } else {
+                asi->req_pending = 1;
             }
             DEBUGMSGTL(("agentx/subagent",
                         "  going from RESERVE1 -> RESERVE2\n"));
@@ -904,7 +1000,7 @@ subagent_open_master_session(void)
 
     if (add_trap_session(main_session, AGENTX_MSG_NOTIFY, 1,
                          AGENTX_VERSION_1)) {
-        DEBUGMSGTL(("agentx/subagent", " trap session registered OK\n"));
+        DEBUGMSGTL(("agentx/subagent", "trap session registered OK\n"));
     } else {
         DEBUGMSGTL(("agentx/subagent",
                     "trap session registration failed\n"));
