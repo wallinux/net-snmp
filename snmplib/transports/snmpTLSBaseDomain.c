@@ -260,6 +260,10 @@ netsnmp_tlsbase_verify_server_cert(SSL *ssl, _netsnmpTLSBaseData *tlsdata) {
             } else {
                 compare_to = tlsdata->their_hostname;
             }
+	    /* convert to lowercase for comparisons */
+	    for(int i = 0; compare_to[i]; i++){
+	        compare_to[i] = tolower(0xFF & compare_to[i]);
+	    }
 
             /* if the hostname we were expecting to talk to matches
                the cert, then we can accept this connection. */
