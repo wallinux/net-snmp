@@ -461,6 +461,18 @@ snmp_get_do_debugging(void)
     return dodebug;
 }
 
+void
+snmp_set_do_debugoutputall(int val)
+{
+    debug_print_everything = val;
+}
+
+int
+snmp_get_do_debugoutputall(void)
+{
+    return debug_print_everything;
+}
+
 #else /* ! NETSNMP_NO_DEBUGGING */
 
 #if __GNUC__ > 2
@@ -562,6 +574,16 @@ int
 snmp_get_do_debugging(void)
 {
     return 0;
+}
+
+void
+snmp_set_do_debugoutputall(int val)
+{ }
+
+int
+snmp_get_do_debugoutputall(void)
+{
+    return 0
 }
 
 #endif /* NETSNMP_NO_DEBUGGING */

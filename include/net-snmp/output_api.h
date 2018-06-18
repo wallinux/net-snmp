@@ -125,6 +125,10 @@ extern "C" {
     void            snmp_set_do_debugging(int);
     NETSNMP_IMPORT
     int             snmp_get_do_debugging(void);
+    NETSNMP_IMPORT
+    void            snmp_set_do_debugoutputall(int);
+    NETSNMP_IMPORT
+    int             snmp_get_do_debugoutputall(void);
 
     /*
      *    Having extracted the main ("public API") calls relevant
