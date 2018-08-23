@@ -1023,7 +1023,7 @@ netsnmp_ocert_get(netsnmp_cert *cert)
     if (NULL == cert->fingerprint) {
         cert->hash_type = netsnmp_openssl_cert_get_hash_type(ocert);
         cert->fingerprint =
-            netsnmp_openssl_cert_get_fingerprint(ocert, cert->hash_type);
+            netsnmp_openssl_cert_get_fingerprint(ocert, -1);
     }
     
     if (NULL == cert->common_name) {
