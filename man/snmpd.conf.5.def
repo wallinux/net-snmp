@@ -173,6 +173,7 @@ This token defines the default X.509 public key to use as the server's
 identity.  It should either be a fingerprint or a filename.  To create
 a public key for use, please run the "net\-snmp\-cert" utility which
 will help you create the required certificate.
+Supported format = sha1
 .IP
 The default value for this is the certificate in the "snmpd" named
 certificate file.
@@ -224,6 +225,7 @@ until a trust anchor for it.  This trust anchor is typically a CA
 certificate but it could also be a self-signed certificate.  The
 "trustCert" token should be used to load specific trust anchors into the
 verification engine.
+Supported format = sha1
 .PP
 SNMP over (D)TLS requires the use of the Transport Security Model
 (TSM), so read the section on the usage of the Transport Security
