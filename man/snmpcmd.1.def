@@ -233,6 +233,7 @@ the certificate fingerprint, the application name (eg snmpd, snmptrapd, perl, py
 genericized name "snmpapp" if using one of the generic applications
 (snmpget, snmpwalk, etc).  This can also be set using the
 localCert specifier in a snmp.conf configuration file.
+Supported format = sha1
 .TP
 .BI "\-T peerCert=<certificate-specifier>"
 If you expect a particular certificate to be presented by the other
@@ -241,6 +242,7 @@ should present.  If it fails to present the expected certificate the
 client will refuse to open the connection (because doing otherwise
 could lead to man-in-the-middle attacks).  This can also be set using
 the peerCert specifier in a snmp.conf configuration file.
+Supported format = sha1
 .TP
 .BI "\-T trust_cert=<certificate-specifier>"
 If you have a trusted CA certificate you wish to anchor trust with,
@@ -248,6 +250,7 @@ you can use this flag to load a given certificate as a trust anchor.
 A copy of the certificate must exist within the Net-SNMP certificate
 storage system or this must point to a complete path name.  Also see
 the "trustCert" snmp.conf configuration token.
+Supported format = sha1
 .TP
 .BI "\-T their_hostname=<name>"
 If the server's presented certificate can be validating using a trust
