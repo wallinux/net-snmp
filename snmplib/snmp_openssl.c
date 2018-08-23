@@ -559,67 +559,18 @@ netsnmp_openssl_cert_get_hash_type(X509 *ocert)
  * returns allocated pointer caller must free.
  */
 char *
-netsnmp_openssl_cert_get_fingerprint(X509 *ocert, int alg)
+netsnmp_openssl_cert_get_fingerprint(X509 *ocert)
 {
     u_char           fingerprint[EVP_MAX_MD_SIZE];
-    u_int            fingerprint_len, nid;
+    u_int            fingerprint_len;
     const EVP_MD    *digest;
     char            *result = NULL;
 
     if (NULL == ocert)
         return NULL;
 
-    nid = X509_get_signature_nid(ocert);
-    DEBUGMSGT(("9:openssl:fingerprint", "alg %d, cert nid %d (%d)\n", alg, nid,
-               _nid2ht(nid)));
-        
-    if ((-1 == alg) && nid)
-        alg = NS_HASH_SHA1;
+    digest = EVP_sha1();
 
-    switch (alg) {
-        case NS_HASH_MD5:
-            snmp_log(LOG_ERR, "hash type md5 not yet supported\n");
-            return NULL;
-            break;
-        
-        case NS_HASH_NONE:
-            snmp_log(LOG_ERR, "hash type none not supported. using SHA1\n");
-            /* FALLTHROUGH */
-
-        case NS_HASH_SHA1:
-            digest = EVP_sha1();
-            break;
-
-#ifdef HAVE_EVP_SHA224
-        case NS_HASH_SHA224:
-            digest = EVP_sha224();
-            break;
-
-        case NS_HASH_SHA256:
-            digest = EVP_sha256();
-            break;
-
-#endif
-#ifdef HAVE_EVP_SHA384
-        case NS_HASH_SHA384:
-            digest = EVP_sha384();
-            break;
-
-        case NS_HASH_SHA512:
-            digest = EVP_sha512();
-            break;
-#endif
-
-        default:
-            snmp_log(LOG_ERR, "unknown hash algorithm %d\n", alg);
-            return NULL;
-    }
-
-    if (_nid2ht(nid) != alg) {
-        DEBUGMSGT(("openssl:fingerprint",
-                   "WARNING: alg %d does not match cert alg %d\n",
-                   alg, _nid2ht(nid)));
-    }
     if (X509_digest(ocert,digest,fingerprint,&fingerprint_len)) {
         binary_to_hex(fingerprint, fingerprint_len, &result);
         if (NULL == result)
@@ -661,7 +612,7 @@ netsnmp_openssl_get_cert_chain(SSL *ssl)
     /*
      * get fingerprint and save it
      */
-    fingerprint = netsnmp_openssl_cert_get_fingerprint(ocert, -1);
+    fingerprint = netsnmp_openssl_cert_get_fingerprint(ocert);
     if (NULL == fingerprint)
         return NULL;
 
@@ -697,7 +648,7 @@ netsnmp_openssl_get_cert_chain(SSL *ssl)
         DEBUGMSGT(("ssl:cert:chain", "examining cert chain\n"));
         for(i = 0; i < sk_num((const void *)ochain); ++i) {
             ocert_tmp = (X509*)sk_value((const void *)ochain,i);
-            fingerprint = netsnmp_openssl_cert_get_fingerprint(ocert_tmp, -1);
+            fingerprint = netsnmp_openssl_cert_get_fingerprint(ocert_tmp);
             if (NULL == fingerprint)
                 break;
             cert_map = netsnmp_cert_map_alloc(NULL, ocert);
