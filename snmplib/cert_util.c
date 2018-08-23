@@ -1023,7 +1023,7 @@ netsnmp_ocert_get(netsnmp_cert *cert)
     if (NULL == cert->fingerprint) {
         cert->hash_type = netsnmp_openssl_cert_get_hash_type(ocert);
         cert->fingerprint =
-            netsnmp_openssl_cert_get_fingerprint(ocert, -1);
+            netsnmp_openssl_cert_get_fingerprint(ocert);
     }
     
     if (NULL == cert->common_name) {
@@ -2035,7 +2035,7 @@ netsnmp_cert_trust(SSL_CTX *ctx, netsnmp_cert *thiscert)
                                 SNMPERR_GENERR);
 
     /* Put the certificate into the store */
-    fingerprint = netsnmp_openssl_cert_get_fingerprint(cert, -1);
+    fingerprint = netsnmp_openssl_cert_get_fingerprint(cert);
     DEBUGMSGTL(("cert:trust",
                 "putting trusted cert %p = %s in certstore %p\n", cert,
                 fingerprint, certstore));
@@ -2737,7 +2737,7 @@ netsnmp_certToTSN_parse_common(char **line)
         map->fingerprint = strdup(buf);
     } else {
         map->fingerprint =
-            netsnmp_openssl_cert_get_fingerprint(tmpcert->ocert, -1);
+            netsnmp_openssl_cert_get_fingerprint(tmpcert->ocert);
     }
     
     if (NULL == *line) {
