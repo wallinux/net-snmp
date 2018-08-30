@@ -108,6 +108,7 @@ typedef struct bio_cache_s {
    BIO *read_bio;  /* OpenSSL will read its incoming SSL packets from here */
    BIO *write_bio; /* OpenSSL will write its outgoing SSL packets to here */
    netsnmp_sockaddr_storage sas;
+   netsnmp_indexed_addr_pair addr_pair;
    u_int flags;
    struct bio_cache_s *next;
    int msgnum;
@@ -301,8 +302,10 @@ start_new_cached_connection(netsnmp_transport *t,
     cachep->next = biocache;
     biocache = cachep;
 
-    if (remote_addr->sa.sa_family == AF_INET)
+    if (remote_addr->sa.sa_family == AF_INET) {
         memcpy(&cachep->sas.sin, &remote_addr->sin, sizeof(remote_addr->sin));
+        memcpy(&cachep->addr_pair.remote_addr, remote_addr, sizeof(netsnmp_sockaddr_storage));
+    }
 #ifdef NETSNMP_TRANSPORT_UDPIPV6_DOMAIN
     else if (remote_addr->sa.sa_family == AF_INET6)
         memcpy(&cachep->sas.sin6, &remote_addr->sin6, sizeof(remote_addr->sin6));
@@ -476,23 +479,6 @@ _extract_addr_pair(netsnmp_transport *t, const void *opaque, int olen)
     return NULL;
 }
 
-static const struct sockaddr *
-_find_remote_sockaddr(netsnmp_transport *t, const void *opaque, int olen,
-                      int *socklen)
-{
-    const netsnmp_indexed_addr_pair *addr_pair;
-    const struct sockaddr *sa = NULL;
-
-    addr_pair = _extract_addr_pair(t, opaque, olen);
-    if (NULL == addr_pair)
-        return NULL;
-
-    sa = &addr_pair->remote_addr.sa;
-    *socklen = netsnmp_sockaddr_size(sa);
-    return sa;
-}
-
-
 /*
  * Reads data from our internal openssl outgoing BIO and sends any
  * queued packets out the UDP port
@@ -513,18 +499,29 @@ _netsnmp_send_queued_dtls_pkts(netsnmp_transport *t, bio_cache *cachep)
     outbuf = malloc(outsize);
     if (outsize > 0 && outbuf) {
         int socksize;
-        void *sa;
+        struct sockaddr *sa;
+        netsnmp_indexed_addr_pair *addr_pair;
 
         DEBUGMSGTL(("dtlsudp", "have %d bytes to send\n", outsize));
 
         outsize = BIO_read(cachep->write_bio, outbuf, outsize);
+
         MAKE_MEM_DEFINED(outbuf, outsize);
-        sa = NETSNMP_REMOVE_CONST(struct sockaddr *,
-                                  _find_remote_sockaddr(t, NULL, 0, &socksize));
-        if (NULL == sa)
+        addr_pair = NETSNMP_REMOVE_CONST(netsnmp_indexed_addr_pair *,
+                                         _extract_addr_pair(t, NULL, 0));
+        if (addr_pair != NULL) {
+            sa = &addr_pair->remote_addr.sa;
+        } else {
             sa = &cachep->sas.sa;
+            addr_pair = &cachep->addr_pair;
+        }
         socksize = netsnmp_sockaddr_size(sa);
-        rc2 = t->base_transport->f_send(t, outbuf, outsize, &sa, &socksize);
+        if (sa->sa_family == AF_INET)
+            rc2 = t->base_transport->f_send(t, outbuf, outsize,
+                                            (void **)&addr_pair, &socksize);
+        else
+            rc2 = t->base_transport->f_send(t, outbuf, outsize,
+                                            (void **)&sa, &socksize);
         if (rc2 == -1) {
             snmp_log(LOG_ERR, "failed to send a DTLS specific packet\n");
         }
@@ -676,10 +673,10 @@ netsnmp_dtlsudp_recv(netsnmp_transport *t, void *buf, int size,
         int olen;
         rc = t->base_transport->f_recv(t, buf, size, &opaque, &olen);
         if (rc > 0) {
-            if (olen > sizeof(*addr_pair))
-                snmp_log(LOG_ERR, "%s: from address length %d > %d\n",
-                         __func__, olen, (int)sizeof(*addr_pair));
-            memcpy(addr_pair, opaque, SNMP_MIN(sizeof(*addr_pair), olen));
+            if (olen == sizeof(struct sockaddr_in6))
+                memcpy(&addr_pair->remote_addr, opaque, olen);
+            else
+                memcpy(addr_pair, opaque, SNMP_MIN(sizeof(*addr_pair), olen));
         }
         SNMP_FREE(opaque);
         if (rc < 0 && errno != EINTR) {
@@ -1071,7 +1068,7 @@ netsnmp_dtlsudp_send(netsnmp_transport *t, const void *buf, int size,
     void *outbuf;
     _netsnmpTLSBaseData *tlsdata = NULL;
     int socksize;
-    void *sa;
+    struct sockaddr *sa;
     
     DEBUGTRACETOK("9:dtlsudp");
     DEBUGMSGTL(("dtlsudp", "sending %d bytes\n", size));
@@ -1277,10 +1274,19 @@ netsnmp_dtlsudp_send(netsnmp_transport *t, const void *buf, int size,
     if (!outbuf)
         return -1;
     rc = BIO_read(cachep->write_bio, outbuf, rc);
+
     MAKE_MEM_DEFINED(outbuf, rc);
     socksize = netsnmp_sockaddr_size(&cachep->sas.sa);
     sa = &cachep->sas.sa;
-    rc = t->base_transport->f_send(t, outbuf, rc, &sa, &socksize);
+    if (sa->sa_family == AF_INET) {
+        netsnmp_indexed_addr_pair *ipv4_addr_pair = &cachep->addr_pair;
+
+        socksize = sizeof(netsnmp_indexed_addr_pair);
+        rc = t->base_transport->f_send(t, outbuf, rc, (void **)&ipv4_addr_pair, &socksize);
+    } else {
+        socksize = netsnmp_sockaddr_size(&cachep->sas.sa);
+        rc = t->base_transport->f_send(t, outbuf, rc, (void **)&sa, &socksize);
+    }
     free(outbuf);
 
     return rc;
