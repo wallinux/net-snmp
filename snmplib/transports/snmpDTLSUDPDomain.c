@@ -1398,6 +1398,14 @@ netsnmp_dtlsudp_fmtaddr(netsnmp_transport *t, const void *data, int len,
                                                netsnmp_transport *t,
                                                const void *data, int len))
 {
+    const netsnmp_indexed_addr_pair *addr_pair =
+        _extract_addr_pair(t, data, len);
+
+    if (addr_pair) {
+        len = sizeof(netsnmp_indexed_addr_pair);
+        data = addr_pair;
+    }
+
     if (t && !data) {
         data = t->data;
         len = t->data_length;
@@ -1405,12 +1413,12 @@ netsnmp_dtlsudp_fmtaddr(netsnmp_transport *t, const void *data, int len,
 
     switch (data ? len : 0) {
     case sizeof(netsnmp_indexed_addr_pair):
-        return netsnmp_ipv4_fmtaddr(pfx, t, data, len);
+        return fmt_base_addr(pfx, t, data, len);
     case sizeof(netsnmp_tmStateReference): {
         const netsnmp_tmStateReference *r = data;
         const netsnmp_indexed_addr_pair *p = &r->addresses;
 
-        return fmt_base_addr("DTLSUDP", t, p, sizeof(*p));
+        return fmt_base_addr(pfx, t, p, sizeof(*p));
     }
     case sizeof(_netsnmpTLSBaseData): {
         const _netsnmpTLSBaseData *b = data;
