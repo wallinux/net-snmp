@@ -84,6 +84,10 @@ SOFTWARE.
 #include <fcntl.h>
 #endif
 
+#ifdef NETSNMP_TRANSPORT_DTLSUDP_DOMAIN
+#include <net-snmp/library/snmpDTLSUDPDomain.h>
+#endif
+
 #include <net-snmp/net-snmp-includes.h>
 #include "snmptrapd_handlers.h"
 #include "snmptrapd_log.h"
@@ -672,8 +676,19 @@ realloc_handle_ip_fmt(u_char ** buf, size_t * buf_len, size_t * out_len,
         if (transport != NULL && transport->f_fmtaddr != NULL) {
             oflags = transport->flags;
             transport->flags &= ~NETSNMP_TRANSPORT_FLAG_HOSTNAME;
-            tstr = transport->f_fmtaddr(transport, pdu->transport_data,
-                                        pdu->transport_data_length);
+#ifdef NETSNMP_TRANSPORT_DTLSUDP_DOMAIN
+            if (snmp_oid_compare(transport->domain, transport->domain_length,
+                                 netsnmpDTLSUDPDomain, netsnmpDTLSUDPDomain_len) == 0) {
+                netsnmp_tsmSecurityReference *tsmSecRef =
+                    (netsnmp_tsmSecurityReference *) pdu->securityStateRef;
+                netsnmp_tmStateReference *tmStateRef = tsmSecRef->tmStateRef;
+
+                tstr = transport->f_fmtaddr(transport, tmStateRef,
+                                            pdu->transport_data_length);
+            } else
+#endif
+                tstr = transport->f_fmtaddr(transport, pdu->transport_data,
+                                            pdu->transport_data_length);
             transport->flags = oflags;
           
             if (!tstr) goto noip;
@@ -706,8 +721,20 @@ noip:
             if (!netsnmp_ds_get_boolean(NETSNMP_DS_APPLICATION_ID, 
                                         NETSNMP_DS_APP_NUMERIC_IP))
                 transport->flags |= NETSNMP_TRANSPORT_FLAG_HOSTNAME;
-            tstr = transport->f_fmtaddr(transport, pdu->transport_data,
-                                        pdu->transport_data_length);
+#ifdef NETSNMP_TRANSPORT_DTLSUDP_DOMAIN
+            if (snmp_oid_compare(transport->domain, transport->domain_length,
+                                 netsnmpDTLSUDPDomain, netsnmpDTLSUDPDomain_len) == 0) {
+                netsnmp_tsmSecurityReference *tsmSecRef =
+                        (netsnmp_tsmSecurityReference *) pdu->securityStateRef;
+                netsnmp_tmStateReference *tmStateRef = tsmSecRef->tmStateRef;
+
+                tstr = transport->f_fmtaddr(transport, tmStateRef,
+                                            pdu->transport_data_length);
+            } else
+#endif
+                    tstr = transport->f_fmtaddr(transport, pdu->transport_data,
+                                            pdu->transport_data_length);
+
             transport->flags = oflags;
           
             if (!tstr) goto nohost;
