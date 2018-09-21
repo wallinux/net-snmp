@@ -344,6 +344,36 @@ debugmsg(const char *token, const char *format, ...)
     }
 }
 
+#include <execinfo.h>
+#include <sys/syscall.h>
+
+void
+debugmsg_backtrace(const char *token, const char *format, ...)
+{
+    if (debug_is_token_registered(token) == SNMPERR_SUCCESS) {
+        void *array[20];
+        size_t size;
+        char **strings;
+        size_t i;
+        va_list debugargs;
+
+        va_start(debugargs, format);
+        snmp_vlog(debug_log_level, format, debugargs);
+        va_end(debugargs);
+
+        size = backtrace(array, 20);
+        strings = backtrace_symbols(array, size);
+
+        snmp_log(debug_log_level, "%s: pid=%i: Obtained %zd stack frames.\n",
+                 token, (int) syscall (SYS_gettid), size);
+
+        for (i = 0; i < size; i++)
+            snmp_log(debug_log_level, "%s: %s\n", token, strings[i]);
+
+        free (strings);
+    }
+}
+
 void
 debugmsg_oid(const char *token, const oid * theoid, size_t len)
 {

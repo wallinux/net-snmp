@@ -35,6 +35,9 @@ extern          "C" {
     void            debugmsg(const char *token, const char *format, ...)
                         NETSNMP_ATTRIBUTE_FORMAT(printf, 2, 3);
     NETSNMP_IMPORT
+    void            debugmsg_backtrace(const char *token, const char *format, ...)
+                        NETSNMP_ATTRIBUTE_FORMAT(printf, 2, 3);
+    NETSNMP_IMPORT
     void            debugmsgtoken(const char *token, const char *format,
                                   ...)
                         NETSNMP_ATTRIBUTE_FORMAT(printf, 2, 3);
@@ -163,7 +166,9 @@ extern          "C" {
 #endif
 
 #define __DBGMSGL(x)     __DBGTRACE, debugmsg x
+#define __DBGBTL(x)      __DBGTRACE, debugmsg_backtrace x
 #define __DBGMSGTL(x)    __DBGTRACE, debugmsgtoken x, debugmsg x
+#define __DBGBTTL(x)     __DBGTRACE, debugmsgtoken x, debugmsg_backtrace x
 #define __DBGMSGOID(x)     debugmsg_oid x
 #define __DBGMSGSUBOID(x)  debugmsg_suboid x
 #define __DBGMSGVAR(x)     debugmsg_var x
