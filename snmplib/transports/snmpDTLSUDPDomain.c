@@ -132,7 +132,8 @@ static int netsnmp_dtls_gen_cookie(SSL *ssl, unsigned char *cookie,
 /* XXX: handle state issues for new connections to reduce DOS issues */
 /*      (TLS should do this, but openssl can't do more than one ctx per sock */
 /* XXX: put a timer on the cache for expirary purposes */
-static bio_cache *find_bio_cache(netsnmp_sockaddr_storage *from_addr) {
+static bio_cache *find_bio_cache(netsnmp_sockaddr_storage *from_addr,
+                                 int sock) {
     bio_cache *cachep = NULL;
     
     for(cachep = biocache; cachep; cachep = cachep->next) {
@@ -153,6 +154,9 @@ static bio_cache *find_bio_cache(netsnmp_sockaddr_storage *from_addr) {
                           sizeof(from_addr->sin6.sin6_addr.s6_addr)) != 0)))
             continue;
 #endif
+        if (cachep->tlsdata->sock != sock) {
+            continue;
+        }
         /* found an existing connection */
         break;
     }
@@ -311,6 +315,9 @@ start_new_cached_connection(netsnmp_transport *t,
     BIO_set_mem_eof_return(cachep->read_bio, -1);
     BIO_set_mem_eof_return(cachep->write_bio, -1);
 
+    /* Save socket for identification of bio_cache */
+    tlsdata->sock = t->sock;
+
     if (we_are_client) {
         /* we're the client */
         DEBUGMSGTL(("dtlsudp",
@@ -410,7 +417,7 @@ static bio_cache *
 find_or_create_bio_cache(netsnmp_transport *t,
                          netsnmp_sockaddr_storage *from_addr,
                          int we_are_client) {
-    bio_cache *cachep = find_bio_cache(from_addr);
+    bio_cache *cachep = find_bio_cache(from_addr, t->sock);
     if (NULL == cachep) {
         /* none found; need to start a new context */
         cachep = start_new_cached_connection(t, from_addr, we_are_client);
@@ -1261,7 +1268,7 @@ netsnmp_dtlsudp_close(netsnmp_transport *t)
         tlsbase = (_netsnmpTLSBaseData *) t->data;
 
         if (tlsbase->addr)
-            cachep = find_bio_cache(&tlsbase->addr->remote_addr);
+            cachep = find_bio_cache(&tlsbase->addr->remote_addr, t->sock);
     }
 
     /* RFC5953: section 5.4, step 3:

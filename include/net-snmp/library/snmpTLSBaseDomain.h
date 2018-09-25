@@ -48,6 +48,17 @@ extern          "C" {
        char                      *their_fingerprint;
        char                      *their_hostname;
        char                      *trust_cert;
+       int                       sock;
+       /*
+        * Insane but when adding 'sock' the size of
+        * this structure and netsnmp_indexed_addr_pair
+        * becomes tha same on 32 bit targets. The size
+        * is used to determine what generic data structure
+        * is passed.
+        * Adding 'padding' to change the size of this
+        * structure.
+        */
+        char                      *padding;
     } _netsnmpTLSBaseData;
 
 #define VRFY_PARENT_WAS_OK 1
