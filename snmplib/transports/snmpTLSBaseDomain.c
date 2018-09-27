@@ -314,9 +314,8 @@ netsnmp_tlsbase_verify_server_cert(SSL *ssl, _netsnmpTLSBaseData *tlsdata) {
             return SNMPERR_GENERR;
 
         }
-        /* XXX: check for hostname match instead */
-        snmp_log(LOG_ERR, "Can not verify a remote server identity without configuration\n");
-        return SNMPERR_GENERR;
+	DEBUGMSGTL(("tls_x509:verify", "their_hostname not set or empty, accepting connection\n"));
+        return SNMPERR_SUCCESS;
     }
     DEBUGMSGTL(("tls_x509:verify", "shouldn't get here\n"));
     return SNMPERR_GENERR;
