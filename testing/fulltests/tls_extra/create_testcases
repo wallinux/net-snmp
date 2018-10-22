@@ -1,0 +1,64 @@
+#!/bin/bash
+
+TESTNAME_PREFIX=T134
+ECHO="echo -e"
+
+create_testcase () {
+    local transport=$1
+    local index=`printf "%02d" $2`
+
+    local filename=${TESTNAME_PREFIX}${transport}_${index}_simple
+
+    echo $filename
+    $ECHO "#!/bin/sh\n"  > $filename
+    $ECHO ". ../support/simple_eval_tools.sh\n" >> $filename
+    $ECHO -n "HEADER IPv$ipv $transport agent trap tests use_ca=$use_ca cert_prefix=$cert_prefix no_of_traps=$no_of_traps tlstype=$tlstype" >> $filename
+    if [ $tlstype = trust ]; then
+	$ECHO " their_hostname=$their_hostname\n" >> $filename
+    else
+	$ECHO "" >> $filename
+    fi
+
+    $ECHO "\n#\n# Begin test\n#\n" >> $filename
+
+    $ECHO "IPv=$ipv" >> $filename
+    $ECHO "SNMP_TRANSPORT_SPEC=$transport" >> $filename
+    $ECHO "USE_CA=$use_ca" >> $filename
+    $ECHO "NO_OF_TRAPS=$no_of_traps" >> $filename
+    $ECHO "INFORM=yes" >> $filename
+    $ECHO "TRAP=yes" >> $filename
+    $ECHO "INFORM_DEFAULT=yes" >> $filename
+    $ECHO "TRAP_DEFAULT=yes" >> $filename
+    $ECHO "CERT_PREFIX=$cert_prefix" >> $filename
+    $ECHO "TLSTYPE=$tlstype" >> $filename
+    $ECHO "THEIR_HOSTNAME=$their_hostname" >> $filename
+
+    $ECHO "\n. ./STlsAgentTrap2"  >> $filename
+}
+
+rm -rf ${TESTNAME_PREFIX}*_simple
+
+i=0
+for ipv in 4 6; do
+    for transport in dtlsudp tlstcp; do
+	for use_ca in no yes; do
+	    for no_of_traps in `seq 1 2`; do
+		for cert_prefix in "" "test_"; do
+		    for tlstype in peer trust; do
+			if [ $tlstype = "trust" ]; then
+			    if [ $use_ca = "yes" ]; then
+			       for their_hostname in `hostname` "" "faulty"; do
+				   create_testcase $transport $i
+				   i=$((i+1))
+			       done
+			    fi
+			else
+			    create_testcase $transport $i
+			    i=$((i+1))
+			fi
+		    done
+		done
+	    done
+	done
+    done
+done

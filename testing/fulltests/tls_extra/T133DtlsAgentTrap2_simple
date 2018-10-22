@@ -1,0 +1,25 @@
+#!/bin/sh
+
+. ../support/simple_eval_tools.sh
+
+HEADER DTLS-UDP IPv4 agent trap tests
+
+#
+# Begin test
+#
+
+IPv=4
+SNMP_TRANSPORT_SPEC=dtlsudp
+USE_CA=no
+NO_OF_TRAPS=1
+INFORM=yes
+TRAP=yes
+INFORM_DEFAULT=yes
+TRAP_DEFAULT=ues
+CERT_PREFIX=
+TLSTYPE=peer
+THEIR_HOSTNAME=`hostname`
+#THEIR_HOSTNAME=
+#THEIR_HOSTNAME=faulty
+
+. ./STlsAgentTrap2
