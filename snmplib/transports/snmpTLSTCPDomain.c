@@ -86,45 +86,25 @@ size_t          netsnmpTLSTCPDomain_len = OID_LENGTH(netsnmpTLSTCPDomain);
 static netsnmp_tdomain tlstcpDomain;
 
 /*
- * Return a string representing the address in data, or else the "far end"
- * address if data is NULL.  
+ * Return a string representing the address in t->data, or else the "far end"
+ * address if data is NULL.
  */
 
 static char *
 netsnmp_tlstcp_fmtaddr(netsnmp_transport *t, const void *data, int len)
 {
-    if (t && !data) {
-        data = t->data;
-        len = t->data_length;
+    const _netsnmpTLSBaseData *b;
+    char *buf;
+
+    if (t == NULL) {
+        snmp_log(LOG_ERR, "tlstcp received a NULL transport\n");
+        return NULL;
     }
 
-    switch (data ? len : 0) {
-    case sizeof(netsnmp_indexed_addr_pair):
-        return netsnmp_ipv4_fmtaddr("TLSTCP", t, data, len);
-    case sizeof(netsnmp_tmStateReference): {
-        const netsnmp_tmStateReference *r = data;
-        const netsnmp_indexed_addr_pair *p = &r->addresses;
-
-        return netsnmp_ipv4_fmtaddr("TLSTCP", t, p, sizeof(*p));
-    }
-    case sizeof(_netsnmpTLSBaseData): {
-        const _netsnmpTLSBaseData *b = data;
-        char *buf;
-
-        if (asprintf(&buf, "TLSTCP: %s", b->addr_string) < 0)
-            buf = NULL;
-        return buf;
-    }
-    case 0:
-        return strdup("TLSTCP: unknown");
-    default: {
-        char *buf;
-
-        if (asprintf(&buf, "TLSTCP: len %d", len) < 0)
-            buf = NULL;
-        return buf;
-    }
-    }
+    b = t->data;
+    if (asprintf(&buf, "TLSTCP: %s", b->addr_string) < 0)
+        buf = NULL;
+    return buf;
 }
 
 static void netsnmp_tlstcp_get_taddr(struct netsnmp_transport_s *t,
