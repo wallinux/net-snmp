@@ -551,7 +551,12 @@ debugmsgtoken(const char *token, const char *format, ...)
     va_list         debugargs;
 
     va_start(debugargs, format);
+#undef INCLUDE_PID
+#ifdef INCLUDE_PID
+    debugmsg(token, "[%i] %s: ", getpid(), token);
+#else
     debugmsg(token, "%s: ", token);
+#endif
     va_end(debugargs);
 }
 
