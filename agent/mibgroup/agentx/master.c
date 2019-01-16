@@ -220,6 +220,7 @@ agentx_got_response(int operation,
         DEBUGMSGTL(("agentx/master", "response too late on session %8p\n",
                     session));
         /* response is too late, free the cache */
+        snmp_log(LOG_WARNING, "agentx_got_response, response to late\n");
         if (magic)
             netsnmp_free_delegated_cache((netsnmp_delegated_cache*) magic);
         return 0;
@@ -229,6 +230,7 @@ agentx_got_response(int operation,
     switch (operation) {
     case NETSNMP_CALLBACK_OP_TIMED_OUT:{
             void           *s = snmp_sess_pointer(session);
+            snmp_log(LOG_WARNING, "agentx_got_response, got %d\n", operation);
             DEBUGMSGTL(("agentx/master", "timeout on session %8p req=0x%x\n",
                         session, (unsigned)reqid));
 
@@ -266,6 +268,8 @@ agentx_got_response(int operation,
 
     case NETSNMP_CALLBACK_OP_DISCONNECT:
     case NETSNMP_CALLBACK_OP_SEND_FAILED:
+        snmp_log(LOG_WARNING, "agentx_got_response, got %d\n", operation);
+
         if (operation == NETSNMP_CALLBACK_OP_DISCONNECT) {
             DEBUGMSGTL(("agentx/master", "disconnect on session %8p\n",
                         session));
@@ -320,6 +324,8 @@ agentx_got_response(int operation,
 
         DEBUGMSGTL(("agentx/master",
                     "agentx_got_response() error branch\n"));
+        snmp_log(LOG_WARNING, "agentx_got_response, error branch got %d\n",
+                 pdu->errstat);
 
         switch (pdu->errstat) {
         case AGENTX_ERR_PARSE_FAILED:
@@ -608,6 +614,7 @@ agentx_master_handler(netsnmp_mib_handler *handler,
                 (unsigned)pdu->reqid, (unsigned)pdu->transid, (unsigned)pdu->sessid));
     result = snmp_async_send(ax_session, pdu, agentx_got_response, cb_data);
     if (result == 0) {
+        snmp_log(LOG_WARNING, "agent_master_handler, snmp_async_send failed\n");
         snmp_free_pdu(pdu);
         if (cb_data)
             netsnmp_free_delegated_cache((netsnmp_delegated_cache*) cb_data);
