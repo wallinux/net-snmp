@@ -5,6 +5,7 @@
 #include <net-snmp/net-snmp-features.h>
 
 #include <stdio.h>
+#include <limits.h>
 #include <sys/types.h>
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -122,8 +123,12 @@ agentx_parse_agentx_timeout(const char *token, char *cptr)
 {
     int x = netsnmp_string_time_to_secs(cptr);
     DEBUGMSGTL(("agentx/config/timeout", "%s\n", cptr));
-    if (x == -1) {
-        config_perror("Invalid timeout value");
+    if (x <= 0) {
+        config_perror("Invalid timeout value, must be greater then 0");
+        return;
+    }
+    if (INT_MAX/ONE_SEC < x) {
+        config_perror("Timeout value to big");
         return;
     }
     netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID,
