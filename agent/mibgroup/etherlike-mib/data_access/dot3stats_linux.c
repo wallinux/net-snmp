@@ -773,7 +773,7 @@ interface_ioctl_dot3stats_get (dot3StatsTable_rowreq_ctx *rowreq_ctx, int fd, co
 
 /*
  * @retval  0 success
- * @retval -1 ETHTOOL_GSET failed
+ * @retval -1 ETHTOOL_GLINKSETTINGS or ETHTOOL_GSET failed
  * @retval -2 function not supported if HAVE_LINUX_ETHTOOL_H not defined
  */
 
@@ -785,6 +785,12 @@ interface_ioctl_dot3stats_duplex_get(dot3StatsTable_rowreq_ctx *rowreq_ctx, int 
     struct ethtool_cmd edata;
     struct ifreq ifr;
     int err;
+#ifdef ETHTOOL_GLINKSETTINGS
+    struct ethtool_link_settings elinkset;
+
+    memset(&elinkset, 0, sizeof(elinkset));
+    elinkset.cmd = ETHTOOL_GLINKSETTINGS;
+#endif
 
     DEBUGMSGTL(("access:dot3StatsTable:interface_ioctl_dot3Stats_duplex_get",
                 "called\n"));
@@ -792,9 +798,18 @@ interface_ioctl_dot3stats_duplex_get(dot3StatsTable_rowreq_ctx *rowreq_ctx, int 
     memset(&edata, 0, sizeof (edata));
     memset(&ifr, 0, sizeof (ifr));
     edata.cmd = ETHTOOL_GSET;
-    ifr.ifr_data = (char *)&edata;
 
+    err = -1;
+#ifdef ETHTOOL_GLINKSETTINGS
+    ifr.ifr_data = (char *) &elinkset;
     err = _dot3Stats_ioctl_get (fd, SIOCETHTOOL, &ifr, name);
+#endif
+
+    if (err < 0) {
+        ifr.ifr_data = (char *)&edata;
+        err = _dot3Stats_ioctl_get (fd, SIOCETHTOOL, &ifr, name);
+    }
+
     if (err < 0) {
         DEBUGMSGTL(("access:dot3StatsTable:interface_ioctl_dot3Stats_duplex_get",
                     "ETHTOOL_GSET failed\n"));

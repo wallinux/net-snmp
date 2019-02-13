@@ -924,7 +924,8 @@ netsnmp_arch_set_admin_status(netsnmp_interface_entry * entry,
 
 #ifdef HAVE_LINUX_ETHTOOL_H
 /**
- * Determines network interface speed from ETHTOOL_GSET
+ * Determines network interface speed from ETHTOOL_GLINKSETTINGS
+ * In case of failure revert to obsolete ETHTOOL_GSET
  */
 unsigned long long
 netsnmp_linux_interface_get_if_speed(int fd, const char *name,
@@ -935,15 +936,30 @@ netsnmp_linux_interface_get_if_speed(int fd, const char *name,
     struct ethtool_cmd edata;
     uint16_t speed_hi;
     uint32_t speed;
+#ifdef ETHTOOL_GLINKSETTINGS
+    struct ethtool_link_settings elinkset;
+
+    memset(&elinkset, 0, sizeof(elinkset));
+    elinkset.cmd = ETHTOOL_GLINKSETTINGS;
+#endif
 
     memset(&ifr, 0, sizeof(ifr));
     memset(&edata, 0, sizeof(edata));
     edata.cmd = ETHTOOL_GSET;
-    
+
     strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-    ifr.ifr_data = (char *) &edata;
-    
+
+    ret = -1;
+#ifdef ETHTOOL_GLINKSETTINGS
+    ifr.ifr_data = (char *) &elinkset;
     ret = ioctl(fd, SIOCETHTOOL, &ifr);
+#endif
+
+    if (ret == -1) {
+        ifr.ifr_data = (char *) &edata;
+        ret = ioctl(fd, SIOCETHTOOL, &ifr);
+    }
+
     if (ret == -1 || edata.speed == 0) {
         DEBUGMSGTL(("mibII/interfaces", "ETHTOOL_GSET on %s failed (%d / %d)\n",
                     ifr.ifr_name, ret, edata.speed));
