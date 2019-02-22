@@ -144,6 +144,21 @@ agentx_parse_agentx_retries(const char *token, char *cptr)
                        NETSNMP_DS_AGENT_AGENTX_RETRIES, x);
 }
 #endif                          /* USING_AGENTX_MASTER_MODULE */
+#ifdef USING_AGENTX_SUBAGENT_MODULE
+void
+agentx_parse_agentx_ping_interval(const char *token, char *cptr)
+{
+    int x = atoi(cptr);
+
+    DEBUGMSGTL(("agentx/config/ping", "%s\n", cptr));
+    if (x < 1) {
+        config_perror("Invalid ping interval value");
+        return;
+    }
+    netsnmp_ds_set_int(NETSNMP_DS_APPLICATION_ID,
+                       NETSNMP_DS_AGENT_AGENTX_PING_INTERVAL, x);
+}
+#endif                          /* USING_AGENTX_SUBAGENT_MODULE */
 
 #ifdef USING_AGENTX_SUBAGENT_MODULE
 void
