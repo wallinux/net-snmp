@@ -1253,7 +1253,6 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
 
         QUITFUN(SNMPERR_GENERR, sc_encrypt_quit);
     }
-    pad_size = pai->pad_size;
 
     memset(my_iv, 0, sizeof(my_iv));
 
@@ -1263,6 +1262,8 @@ sc_encrypt(const oid * privtype, size_t privtypelen,
         /*
          * now calculate the padding needed 
          */
+
+       pad_size = pai->pad_size;
         pad = pad_size - (ptlen % pad_size);
         plast = (int) ptlen - (pad_size - pad);
         if (pad == pad_size)
