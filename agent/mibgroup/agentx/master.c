@@ -231,7 +231,6 @@ agentx_got_response(int operation,
 
     switch (operation) {
     case NETSNMP_CALLBACK_OP_TIMED_OUT:{
-            struct session_list *s = snmp_sess_pointer(session);
             DEBUGMSGTL(("agentx/master", "timeout on session %8p req=0x%x\n",
                         session, (unsigned)reqid));
 
@@ -241,26 +240,6 @@ agentx_got_response(int operation,
                                       /* XXXWWW: should be index=0 */
                                       SNMP_ERR_GENERR);
 
-            /*
-             * This is a bit sledgehammer because the other sessions on this
-             * transport may be okay (e.g. some thread in the subagent has
-             * wedged, but the others are alright).  OTOH the overwhelming
-             * probability is that the whole agent has died somehow.  
-             */
-
-            if (s != NULL) {
-                netsnmp_transport *t = snmp_sess_transport(s);
-                close_agentx_session(session, -1);
-
-                if (t != NULL) {
-                    DEBUGMSGTL(("agentx/master", "close transport\n"));
-                    t->f_close(t);
-                } else {
-                    DEBUGMSGTL(("agentx/master", "NULL transport??\n"));
-                }
-            } else {
-                DEBUGMSGTL(("agentx/master", "NULL sess_pointer??\n"));
-            }
             ax_session = (netsnmp_session *) cache->localinfo;
             netsnmp_free_agent_snmp_session_by_session(ax_session, NULL);
             netsnmp_free_delegated_cache(cache);
