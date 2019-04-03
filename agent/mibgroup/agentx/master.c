@@ -219,8 +219,9 @@ agentx_got_response(int operation,
 
     cache = netsnmp_handler_check_cache(cache);
     if (!cache) {
-        DEBUGMSGTL(("agentx/master", "response too late on session %8p\n",
-                    session));
+        snmp_log(LOG_WARNING,
+                 "agentx_got_response, response too late on session %p, magic=%p\n",
+                 session, magic);
         /* response is too late, free the cache */
         if (magic)
             netsnmp_free_delegated_cache((netsnmp_delegated_cache*) magic);
