@@ -353,6 +353,7 @@ static int      snmpv3_build(u_char ** pkt, size_t * pkt_len,
                              netsnmp_pdu *pdu);
 static int      snmp_parse_version(u_char *, size_t);
 static int      snmp_resend_request(struct session_list *slp,
+                                    netsnmp_request_list *orp,
                                     netsnmp_request_list *rp,
                                     int incr_retries);
 static void     register_default_handlers(void);
@@ -5359,7 +5360,7 @@ _sess_process_packet(void *sessp, netsnmp_session * sp,
 	     * * inifinite resend                      
 	     */
 	    if (rp->retries <= sp->retries) {
-	      snmp_resend_request(slp, rp, TRUE);
+	      snmp_resend_request(slp, orp, rp, TRUE);
 	      break;
 	    } else {
 	      /* We're done with retries, so no longer waiting for a response */
@@ -6175,9 +6176,22 @@ snmp_timeout(void)
     snmp_res_unlock(MT_LIBRARY_ID, MT_LIB_SESSION);
 }
 
+static void
+remove_request(struct snmp_internal_session *isp,
+               netsnmp_request_list *orp, netsnmp_request_list *rp)
+{
+    if (orp)
+        orp->next_request = rp->next_request;
+    else
+        isp->requests = rp->next_request;
+    if (isp->requestsEnd == rp)
+        isp->requestsEnd = orp;
+    snmp_free_pdu(rp->pdu);
+}
+
 static int
-snmp_resend_request(struct session_list *slp, netsnmp_request_list *rp,
-                    int incr_retries)
+snmp_resend_request(struct session_list *slp, netsnmp_request_list *orp,
+                    netsnmp_request_list *rp, int incr_retries)
 {
     struct snmp_internal_session *isp;
     netsnmp_session *sp;
@@ -6345,17 +6359,11 @@ snmp_sess_timeout(void *sessp)
                     callback(NETSNMP_CALLBACK_OP_TIMED_OUT, sp,
                              rp->pdu->reqid, rp->pdu, magic);
                 }
-                if (orp)
-                    orp->next_request = rp->next_request;
-                else
-                    isp->requests = rp->next_request;
-                if (isp->requestsEnd == rp)
-                    isp->requestsEnd = orp;
-                snmp_free_pdu(rp->pdu);
+                remove_request(isp, orp, rp);
                 freeme = rp;
                 continue;       /* don't update orp below */
             } else {
-                if (snmp_resend_request(slp, rp, TRUE)) {
+                if (snmp_resend_request(slp, orp, rp, TRUE)) {
                     break;
                 }
             }
