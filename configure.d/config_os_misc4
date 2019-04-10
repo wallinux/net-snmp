@@ -116,9 +116,9 @@ if test x$LPSTAT_PATH != x; then
 	[Path to the lpstat command])
     AC_DEFINE(HAVE_LPSTAT, 1, [Set if the lpstat command is available])
 fi
-if test -r /etc/printcap; then
+AC_CHECK_FILE([/etc/printcap],
     AC_DEFINE(HAVE_PRINTCAP, 1, [Set if /etc/printcap exists])
-fi
+)
 
 
 #       Check ps args
