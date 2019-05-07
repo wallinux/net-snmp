@@ -223,7 +223,7 @@ agentx_got_response(int operation,
         snmp_log(LOG_WARNING, "agentx_got_response, response to late\n");
         if (magic)
             netsnmp_free_delegated_cache((netsnmp_delegated_cache*) magic);
-        return 0;
+        return 1;
     }
     requests = cache->requests;
 
