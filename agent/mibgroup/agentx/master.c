@@ -589,6 +589,17 @@ agentx_master_handler(netsnmp_mib_handler *handler,
     else
         cb_data = NULL;
 
+    /* check if the session has been diconnected */
+    cache = netsnmp_handler_check_cache(cb_data);
+    if (!cache) {
+        DEBUGMSGTL(("agentx/master", "session may be disconnected %8p\n",
+                    session));
+        /* response is too late, perhaps session was disconnected? */
+        if (cb_data)
+            netsnmp_free_delegated_cache((netsnmp_delegated_cache*) magic);
+        return 1;
+    }
+
     /*
      * send the requests out.
      */
